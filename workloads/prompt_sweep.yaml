@@ -1,0 +1,99 @@
+# Build 1 prompt-length pressure workload.
+# Purpose: isolate prefill/input-length effects on TTFT, KV usage, and queue pressure.
+
+schema_version: "1.0"
+workload_name: prompt_sweep
+build_id: 001-vllm-performance-triage
+suite: prompt-sweep
+model_profile: configs/models/qwen2.5-7b-instruct.yaml
+
+objective: >-
+  Measure how increasing input sequence length affects TTFT, TPOT, E2E latency,
+  throughput, num_requests_waiting, KV usage, and preemption behavior.
+
+hypothesis: >-
+  Longer prompts should primarily increase prefill cost and KV footprint. The most
+  direct signal should be TTFT growth. TPOT should remain comparatively stable
+  unless prefill/decode interference or queueing emerges.
+
+controlled_variables:
+  model: Qwen/Qwen2.5-7B-Instruct
+  hardware: NVIDIA RTX 4090 24GB
+  runtime: vLLM OpenAI-compatible server
+  max_model_len: 8192
+  gpu_memory_utilization: 0.90
+  max_num_seqs: 64
+  max_num_batched_tokens: 8192
+  dataset_name: random
+  random_output_len: 128
+  request_rate: 4
+  num_prompts: 100
+
+changed_variable: random_input_len
+
+experiments:
+  - name: prompt-length-512
+    random_input_len: 512
+    random_output_len: 128
+    request_rate: 4
+    num_prompts: 100
+    expected_pressure: baseline_prompt
+    raw_output_dir: results/raw/001-vllm-performance-triage/prompt-length-512
+  - name: prompt-length-1024
+    random_input_len: 1024
+    random_output_len: 128
+    request_rate: 4
+    num_prompts: 100
+    expected_pressure: light_prefill
+    raw_output_dir: results/raw/001-vllm-performance-triage/prompt-length-1024
+  - name: prompt-length-2048
+    random_input_len: 2048
+    random_output_len: 128
+    request_rate: 4
+    num_prompts: 100
+    expected_pressure: moderate_prefill
+    raw_output_dir: results/raw/001-vllm-performance-triage/prompt-length-2048
+  - name: prompt-length-4096
+    random_input_len: 4096
+    random_output_len: 128
+    request_rate: 4
+    num_prompts: 100
+    expected_pressure: high_prefill
+    raw_output_dir: results/raw/001-vllm-performance-triage/prompt-length-4096
+  - name: prompt-length-8192
+    random_input_len: 8192
+    random_output_len: 128
+    request_rate: 4
+    num_prompts: 100
+    expected_pressure: max_context_prefill
+    raw_output_dir: results/raw/001-vllm-performance-triage/prompt-length-8192
+
+metrics:
+  primary:
+    - TTFT_p95
+    - TPOT_p95
+    - E2E_p95
+    - num_requests_waiting
+    - kv_cache_usage
+    - preemptions
+  secondary:
+    - request_throughput
+    - output_token_throughput
+    - gpu_memory_used_mb
+    - error_rate
+
+failure_modes_to_watch:
+  - prefill_pressure
+  - kv_pressure
+  - queue_saturation
+  - preemption_or_oom_risk
+
+operational_rule_target: >-
+  If TTFT rises as prompt length increases while TPOT remains stable and
+  num_requests_waiting stays low, classify the bottleneck as prefill/input-length
+  pressure. If num_requests_waiting also rises, classify it as queue saturation
+  induced by long prompts.
+
+stop_condition: >-
+  Stop after all configured prompt lengths complete or the server reaches a clear
+  context/KV failure. Preserve failed run output as raw evidence.

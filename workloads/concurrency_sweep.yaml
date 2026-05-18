@@ -1,0 +1,101 @@
+# Build 1 request-rate/concurrency pressure workload.
+# Purpose: identify saturation point through queue pressure and latency growth.
+
+schema_version: "1.0"
+workload_name: concurrency_sweep
+build_id: 001-vllm-performance-triage
+suite: rate-sweep
+model_profile: configs/models/qwen2.5-7b-instruct.yaml
+
+objective: >-
+  Measure how increasing request arrival rate affects TTFT, TPOT, E2E latency,
+  throughput, num_requests_waiting, KV usage, and error rate.
+
+hypothesis: >-
+  As request rate increases, throughput should improve until the backend saturates.
+  After saturation, num_requests_waiting and tail latency should rise before or
+  alongside errors.
+
+controlled_variables:
+  model: Qwen/Qwen2.5-7B-Instruct
+  hardware: NVIDIA RTX 4090 24GB
+  runtime: vLLM OpenAI-compatible server
+  max_model_len: 8192
+  gpu_memory_utilization: 0.90
+  max_num_seqs: 64
+  max_num_batched_tokens: 8192
+  dataset_name: random
+  random_input_len: 512
+  random_output_len: 128
+  num_prompts: 200
+
+changed_variable: request_rate
+
+experiments:
+  - name: request-rate-1
+    random_input_len: 512
+    random_output_len: 128
+    request_rate: 1
+    num_prompts: 200
+    expected_pressure: low
+    raw_output_dir: results/raw/001-vllm-performance-triage/request-rate-1
+  - name: request-rate-2
+    random_input_len: 512
+    random_output_len: 128
+    request_rate: 2
+    num_prompts: 200
+    expected_pressure: light
+    raw_output_dir: results/raw/001-vllm-performance-triage/request-rate-2
+  - name: request-rate-4
+    random_input_len: 512
+    random_output_len: 128
+    request_rate: 4
+    num_prompts: 200
+    expected_pressure: moderate
+    raw_output_dir: results/raw/001-vllm-performance-triage/request-rate-4
+  - name: request-rate-8
+    random_input_len: 512
+    random_output_len: 128
+    request_rate: 8
+    num_prompts: 200
+    expected_pressure: high
+    raw_output_dir: results/raw/001-vllm-performance-triage/request-rate-8
+  - name: request-rate-16
+    random_input_len: 512
+    random_output_len: 128
+    request_rate: 16
+    num_prompts: 200
+    expected_pressure: saturation_probe
+    raw_output_dir: results/raw/001-vllm-performance-triage/request-rate-16
+
+metrics:
+  primary:
+    - TTFT_p95
+    - TPOT_p95
+    - E2E_p95
+    - request_throughput
+    - num_requests_waiting
+    - error_rate
+  secondary:
+    - output_token_throughput
+    - num_requests_running
+    - kv_cache_usage
+    - preemptions
+    - gpu_memory_used_mb
+    - gpu_utilization_percent
+
+failure_modes_to_watch:
+  - queue_saturation
+  - tail_latency_explosion
+  - excess_active_sequences
+  - kv_pressure
+  - error_rate_increase
+
+operational_rule_target: >-
+  If request rate increases and num_requests_waiting rises with TTFT p95/p99, the
+  backend has crossed into queue saturation. Add capacity, lower request rate,
+  shed low-priority work, or route away from the saturated backend.
+
+stop_condition: >-
+  Stop after request-rate-16 completes, or earlier if sustained errors, OOM, or
+  unusable p99 latency appears. Preserve partial and failed run output as raw evidence.

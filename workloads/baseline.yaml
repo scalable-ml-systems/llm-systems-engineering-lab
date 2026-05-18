@@ -1,0 +1,66 @@
+# Build 1 baseline workload.
+# Purpose: establish a healthy single-backend reference before pressure sweeps.
+
+schema_version: "1.0"
+workload_name: baseline
+build_id: 001-vllm-performance-triage
+suite: baseline
+model_profile: configs/models/qwen2.5-7b-instruct.yaml
+
+objective: >-
+  Establish the baseline TTFT, TPOT, E2E latency, throughput, queue pressure,
+  KV usage, and error rate for Qwen2.5-7B-Instruct on a single RTX 4090 backend.
+
+hypothesis: >-
+  Under moderate prompt length, output length, and request rate, the backend should
+  show stable latency, low num_requests_waiting, acceptable KV usage, and zero or
+  near-zero errors.
+
+controlled_variables:
+  model: Qwen/Qwen2.5-7B-Instruct
+  hardware: NVIDIA RTX 4090 24GB
+  runtime: vLLM OpenAI-compatible server
+  max_model_len: 8192
+  gpu_memory_utilization: 0.90
+  max_num_seqs: 64
+  max_num_batched_tokens: 8192
+  dataset_name: random
+
+experiments:
+  - name: baseline
+    description: Healthy reference workload for Build 1.
+    changed_variable: none
+    random_input_len: 512
+    random_output_len: 128
+    request_rate: 4
+    num_prompts: 100
+    expected_pressure: low_to_moderate
+    raw_output_dir: results/raw/001-vllm-performance-triage/baseline
+
+metrics:
+  primary:
+    - TTFT_p95
+    - TPOT_p95
+    - E2E_p95
+    - request_throughput
+    - num_requests_waiting
+    - kv_cache_usage
+    - error_rate
+  secondary:
+    - TTFT_p50
+    - TTFT_p99
+    - TPOT_p50
+    - TPOT_p99
+    - E2E_p50
+    - E2E_p99
+    - gpu_memory_used_mb
+    - gpu_utilization_percent
+
+operational_rule_target: >-
+  Baseline is the comparison point. If later sweeps increase TTFT, TPOT, E2E, or
+  num_requests_waiting relative to this run, classify the degradation by the first
+  metric that breaks.
+
+stop_condition: >-
+  Stop after one clean baseline run is collected and raw output is saved without
+  manual modification.

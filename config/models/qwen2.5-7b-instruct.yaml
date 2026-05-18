@@ -1,0 +1,102 @@
+# Model profile for the core evidence stack.
+# Target: CloudRift RTX 4090 24GB + vLLM OpenAI-compatible server.
+
+schema_version: "1.0"
+profile_name: qwen2.5-7b-instruct-rtx4090
+build_stage: core-evidence
+
+model:
+  provider: Qwen
+  hf_id: Qwen/Qwen2.5-7B-Instruct
+  served_model_name: Qwen/Qwen2.5-7B-Instruct
+  class: dense-causal-lm
+  parameter_size: 7B
+  role: primary_build_1_to_4_model
+  notes:
+    - "Production-relevant 7B-class model for credible single-GPU serving evidence."
+    - "Use toy models only for harness smoke tests, not published evidence."
+
+hardware_target:
+  provider: CloudRift
+  accelerator: NVIDIA RTX 4090
+  vram_gb: 24
+  system_ram_gb: 46.9
+  disk_gb: 1000
+  gpu_count: 1
+  purpose: core_single_gpu_evidence
+
+runtime:
+  engine: vLLM
+  api_mode: openai-compatible
+  host: 0.0.0.0
+  port: 8000
+  base_url: http://localhost:8000
+  dtype: auto
+  tokenizer_mode: auto
+  trust_remote_code: false
+
+vllm_server_defaults:
+  max_model_len: 8192
+  gpu_memory_utilization: 0.90
+  max_num_seqs: 64
+  max_num_batched_tokens: 8192
+  enable_chunked_prefill: null
+  extra_args: ""
+
+sampling_defaults:
+  temperature: 0.7
+  top_p: 0.8
+  max_tokens: 128
+
+benchmark_defaults:
+  backend: openai-chat
+  dataset_name: random
+  num_prompts: 100
+  request_rate: 4
+  random_input_len: 512
+  random_output_len: 128
+
+metrics_contract:
+  latency:
+    - TTFT_p50
+    - TTFT_p95
+    - TTFT_p99
+    - TPOT_p50
+    - TPOT_p95
+    - TPOT_p99
+    - E2E_p50
+    - E2E_p95
+    - E2E_p99
+  throughput:
+    - request_throughput
+    - output_token_throughput
+    - total_token_throughput
+  runtime_pressure:
+    - num_requests_running
+    - num_requests_waiting
+    - kv_cache_usage
+    - preemptions
+  gpu:
+    - gpu_memory_used_mb
+    - gpu_memory_total_mb
+    - gpu_utilization_percent
+
+standard_benchmark_columns:
+  - Experiment
+  - Workload
+  - Changed Variable
+  - Controlled Variables
+  - TTFT p95
+  - TPOT p95
+  - E2E p95
+  - Throughput
+  - num_requests_waiting
+  - KV Usage
+  - Error Rate
+  - Interpretation
+
+evidence_paths:
+  build_id: 001-vllm-performance-triage
+  raw_root: results/raw/001-vllm-performance-triage
+  processed_root: results/processed/001-vllm-performance-triage
+  docs_root: docs/builds/001-vllm-performance-triage

@@ -1,0 +1,92 @@
+# Build 1 output-length pressure workload.
+# Purpose: isolate decode residency effects on TPOT, E2E latency, and throughput.
+
+schema_version: "1.0"
+workload_name: output_sweep
+build_id: 001-vllm-performance-triage
+suite: output-sweep
+model_profile: configs/models/qwen2.5-7b-instruct.yaml
+
+objective: >-
+  Measure how increasing generated output length affects TPOT, E2E latency,
+  throughput, active request residency, queue pressure, and KV usage.
+
+hypothesis: >-
+  Longer outputs should increase decode residency and total request duration. The
+  strongest signals should be E2E latency growth and possible TPOT degradation if
+  decode pressure increases under sustained generation.
+
+controlled_variables:
+  model: Qwen/Qwen2.5-7B-Instruct
+  hardware: NVIDIA RTX 4090 24GB
+  runtime: vLLM OpenAI-compatible server
+  max_model_len: 8192
+  gpu_memory_utilization: 0.90
+  max_num_seqs: 64
+  max_num_batched_tokens: 8192
+  dataset_name: random
+  random_input_len: 512
+  request_rate: 4
+  num_prompts: 100
+
+changed_variable: random_output_len
+
+experiments:
+  - name: output-length-128
+    random_input_len: 512
+    random_output_len: 128
+    request_rate: 4
+    num_prompts: 100
+    expected_pressure: baseline_decode
+    raw_output_dir: results/raw/001-vllm-performance-triage/output-length-128
+  - name: output-length-256
+    random_input_len: 512
+    random_output_len: 256
+    request_rate: 4
+    num_prompts: 100
+    expected_pressure: light_decode
+    raw_output_dir: results/raw/001-vllm-performance-triage/output-length-256
+  - name: output-length-512
+    random_input_len: 512
+    random_output_len: 512
+    request_rate: 4
+    num_prompts: 100
+    expected_pressure: moderate_decode
+    raw_output_dir: results/raw/001-vllm-performance-triage/output-length-512
+  - name: output-length-1024
+    random_input_len: 512
+    random_output_len: 1024
+    request_rate: 4
+    num_prompts: 100
+    expected_pressure: high_decode_residency
+    raw_output_dir: results/raw/001-vllm-performance-triage/output-length-1024
+
+metrics:
+  primary:
+    - TPOT_p95
+    - E2E_p95
+    - request_throughput
+    - output_token_throughput
+    - num_requests_running
+    - num_requests_waiting
+  secondary:
+    - TTFT_p95
+    - kv_cache_usage
+    - gpu_memory_used_mb
+    - gpu_utilization_percent
+    - error_rate
+
+failure_modes_to_watch:
+  - decode_pressure
+  - decode_residency_saturation
+  - queue_saturation
+  - kv_pressure
+
+operational_rule_target: >-
+  If TPOT rises as output length increases while TTFT remains acceptable, classify
+  the bottleneck as decode pressure. If E2E rises but TPOT is stable, classify it
+  as expected longer decode residency rather than runtime degradation.
+
+stop_condition: >-
+  Stop after all configured output lengths complete or output-heavy traffic causes
+  sustained queue growth or errors. Preserve failed run output as raw evidence.

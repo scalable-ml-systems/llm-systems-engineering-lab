@@ -1,0 +1,40 @@
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+riftuser    3919 22.3  4.4 34911824 2083580 pts/0 Sl+ 20:07   2:57 /home/riftuser/llm-systems-engineering-lab/.venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=31, pipe_handle=33) --multiprocessing-fork
+riftuser    3842  1.9  1.8 6390816 851436 pts/0  Sl+  20:06   0:15 /home/riftuser/llm-systems-engineering-lab/.venv/bin/python3 /home/riftuser/llm-systems-engineering-lab/.venv/bin/vllm serve Qwen/Qwen2.5-7B-Instruct --served-model-name Qwen/Qwen2.5-7B-Instruct --host 0.0.0.0 --port 8000 --dtype half --max-model-len 4096 --gpu-memory-utilization 0.75 --max-num-seqs 4 --max-num-batched-tokens 2048 --enforce-eager --trust-remote-code
+root         893  0.0  0.1 2121528 71540 ?       Ssl  17:02   0:03 /usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock
+root         799  0.1  0.0 2097724 42420 ?       Ssl  17:02   0:15 /usr/bin/containerd
+root         796  0.0  0.0 1764600 31292 ?       Ssl  17:02   0:05 /usr/lib/snapd/snapd
+root         484  0.0  0.0 289312 27096 ?        SLsl 17:01   0:01 /sbin/multipathd -d -s
+root         871  0.0  0.0 110136 21416 ?        Ssl  17:02   0:00 /usr/bin/python3 /usr/share/unattended-upgrades/unattended-upgrade-shutdown --wait-for-signal
+root        2328  0.0  0.0 296004 20188 ?        Ssl  17:22   0:00 /usr/libexec/packagekitd
+root         451  0.0  0.0  64284 19800 ?        S<s  17:01   0:00 /lib/systemd/systemd-journald
+root         790  0.0  0.0  33120 18932 ?        Ss   17:02   0:00 /usr/bin/python3 /usr/bin/networkd-dispatcher --run-startup-triggers
+systemd+     682  0.0  0.0  26200 13928 ?        Ss   17:01   0:00 /lib/systemd/systemd-resolved
+root           1  0.0  0.0 167564 12952 ?        Ss   17:01   0:02 /sbin/init
+riftuser    3918  0.0  0.0  19384 10956 pts/0    S+   20:07   0:00 /home/riftuser/llm-systems-engineering-lab/.venv/bin/python3 -c from multiprocessing.resource_tracker import main;main(30)
+root        1785  0.0  0.0  16920 10904 ?        Ss   17:16   0:00 sshd: riftuser [priv]
+root        4246  0.0  0.0  16920 10756 ?        Ss   20:14   0:00 sshd: riftuser [priv]
+root         942  0.0  0.0  15436  9520 ?        Ss   17:02   0:00 sshd: /usr/sbin/sshd -D [listener] 0 of 10-100 startups
+riftuser    1789  0.0  0.0  17092  9468 ?        Ss   17:16   0:00 /lib/systemd/systemd --user
+systemd+     680  0.0  0.0  16128  8084 ?        Ss   17:01   0:00 /lib/systemd/systemd-networkd
+riftuser    1870  0.0  0.0  17216  8064 ?        S    17:16   0:01 sshd: riftuser@pts/0
+riftuser    4324  0.0  0.0  17212  7852 ?        S    20:14   0:00 sshd: riftuser@pts/1
+root         797  0.0  0.0  15540  7388 ?        Ss   17:02   0:00 /lib/systemd/systemd-logind
+root         488  0.0  0.0  23184  6772 ?        Ss   17:01   0:00 /lib/systemd/systemd-udevd
+systemd+     607  0.0  0.0  89364  6580 ?        Ssl  17:01   0:00 /lib/systemd/systemd-timesyncd
+root        2990  0.0  0.0 234512  6576 ?        Ssl  17:23   0:00 /usr/libexec/polkitd --no-debug
+riftuser    1873  0.0  0.0   9232  5692 pts/0    Ss   17:16   0:00 -bash
+syslog       794  0.0  0.0 222404  5364 ?        Ssl  17:02   0:00 /usr/sbin/rsyslogd -n -iNONE
+riftuser    4325  0.0  0.0   9152  5228 pts/1    Ss   20:14   0:00 -bash
+riftuser    1790  0.0  0.0 170348  4852 ?        S    17:16   0:00 (sd-pam)
+message+     780  0.0  0.0   8592  4828 ?        Ss   17:02   0:00 @dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+root         789  0.0  0.0  82808  3984 ?        Ssl  17:02   0:00 /usr/sbin/irqbalance --foreground
+riftuser    4359  0.0  0.0   7896  3864 pts/1    S+   20:20   0:00 bash scripts/collect_metrics.sh pre-build1
+riftuser    4368  0.0  0.0  10624  3148 pts/1    R+   20:20   0:00 ps aux --sort=-%mem
+root         779  0.0  0.0   7288  2816 ?        Ss   17:02   0:00 /usr/sbin/cron -f -P
+nvidia-+     793  0.0  0.0   5480  1808 ?        Ss   17:02   0:00 /usr/bin/nvidia-persistenced --user nvidia-persistenced --no-persistence-mode --verbose
+root         823  0.0  0.0   6220  1168 ttyS0    Ss+  17:02   0:00 /sbin/agetty -o -p -- \u --keep-baud 115200,57600,38400,9600 ttyS0 vt220
+root         838  0.0  0.0   6176  1168 tty1     Ss+  17:02   0:00 /sbin/agetty -o -p -- \u --noclear tty1 linux
+riftuser    4369  0.0  0.0   6204  1024 pts/1    S+   20:20   0:00 head -40
+riftuser    3843  0.0  0.0   6196  1004 pts/0    S+   20:06   0:00 tee logs/vllm-qwen25-7b-stable.log
+root           2  0.0  0.0      0     0 ?        S    17:01   0:00 [kthreadd]

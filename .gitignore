@@ -1,5 +1,27 @@
 *notes/
 *.pem
 
+cat > .gitignore <<'EOF'
 .venv/
-.venv/
+__pycache__/
+*.pyc
+
+# Large/local experiment output
+results/raw/**/*.jsonl
+results/raw/**/*.log
+results/raw/**/*.prom
+logs/
+*.log
+
+# Model/cache files
+.cache/
+huggingface/
+models/
+*.safetensors
+*.bin
+*.pt
+
+# Secrets
+.env
+*.pem
+EOF

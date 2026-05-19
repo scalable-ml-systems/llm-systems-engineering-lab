@@ -1,0 +1,2 @@
+timestamp, name, index, uuid, driver_version, memory.total [MiB], memory.used [MiB], memory.free [MiB], utilization.gpu [%], utilization.memory [%], temperature.gpu, power.draw [W], power.limit [W]
+2026/05/19 20:20:21.087, NVIDIA GeForce RTX 4090, 0, GPU-7f281477-d32e-c561-2335-e55cdbea3a01, 575.57.08, 24564 MiB, 17863 MiB, 6219 MiB, 0 %, 0 %, 33, 8.60 W, 450.00 W

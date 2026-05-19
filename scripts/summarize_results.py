@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
-"""Summarize raw vLLM benchmark results into processed CSV/Markdown tables.
+"""Summarize Build 1 raw vLLM benchmark results.
 
-Design rules:
-- results/raw/ stays raw and unmodified.
-- results/processed/ contains normalized summaries.
-- docs/builds/ contains interpretation written by the operator.
-
-The parser is intentionally tolerant because vLLM benchmark result JSON fields can vary by version.
+Rules:
+- results/raw/ stays immutable.
+- results/processed/ contains normalized CSV/Markdown.
+- docs/builds/ contains interpretation.
 """
 
 from __future__ import annotations
@@ -14,258 +12,252 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import math
-import re
 from pathlib import Path
 from typing import Any
 
-STANDARD_COLUMNS = [
-    "Experiment",
-    "Workload",
-    "Changed Variable",
-    "Controlled Variables",
-    "TTFT p95",
-    "TPOT p95",
-    "E2E p95",
-    "Throughput",
-    "num_requests_waiting",
-    "KV Usage",
-    "Error Rate",
-    "Interpretation",
-]
 
-FIELD_ALIASES = {
-    "TTFT p95": [
-        "p95_ttft_ms",
-        "p95_ttft",
-        "ttft_p95_ms",
-        "ttft_p95",
-        "Time to First Token p95 (ms)",
-    ],
-    "TPOT p95": [
-        "p95_tpot_ms",
-        "p95_tpot",
-        "tpot_p95_ms",
-        "tpot_p95",
-        "p95_itl_ms",
-        "itl_p95_ms",
-        "inter_token_latency_p95_ms",
-    ],
-    "E2E p95": [
-        "p95_e2el_ms",
-        "p95_e2e_latency_ms",
-        "e2e_latency_p95_ms",
-        "request_latency_p95_ms",
-        "p95_latency_ms",
-    ],
-    "Throughput": [
-        "request_throughput",
-        "requests_per_second",
-        "output_throughput",
-        "output_tokens_per_second",
-        "total_token_throughput",
-    ],
-    "Error Rate": ["error_rate", "failed_rate", "failure_rate"],
-}
+DEFAULT_RAW = "results/raw/001-vllm-performance-triage"
+DEFAULT_OUT = "results/processed/001-vllm-performance-triage"
 
 
-def load_json(path: Path) -> Any | None:
+def load_json(path: Path) -> dict[str, Any] | None:
     try:
-        return json.loads(path.read_text())
+        data = json.loads(path.read_text())
+        return data if isinstance(data, dict) else None
     except Exception:
         return None
 
 
-def flatten(obj: Any, prefix: str = "") -> dict[str, Any]:
-    out: dict[str, Any] = {}
-    if isinstance(obj, dict):
-        for key, value in obj.items():
-            child = f"{prefix}.{key}" if prefix else str(key)
-            out.update(flatten(value, child))
-    elif isinstance(obj, list):
-        # Keep list summaries small. Raw lists remain in results/raw.
-        out[prefix] = obj
-    else:
-        out[prefix] = obj
-    return out
+def find_result_jsons(raw_root: Path) -> list[Path]:
+    result_files: list[Path] = []
 
-
-def numeric(value: Any) -> float | None:
-    if value is None or value == "":
-        return None
-    if isinstance(value, (int, float)):
-        if math.isnan(float(value)):
-            return None
-        return float(value)
-    if isinstance(value, str):
-        cleaned = value.strip().replace("ms", "").replace("s", "").replace(",", "")
-        try:
-            return float(cleaned)
-        except ValueError:
-            return None
-    return None
-
-
-def percentile(values: list[float], pct: float) -> float | None:
-    if not values:
-        return None
-    values = sorted(values)
-    k = (len(values) - 1) * pct
-    f = math.floor(k)
-    c = math.ceil(k)
-    if f == c:
-        return values[int(k)]
-    return values[f] * (c - k) + values[c] * (k - f)
-
-
-def find_alias(flat: dict[str, Any], aliases: list[str]) -> Any | None:
-    # Exact suffix match first, then lowercase fuzzy match.
-    for alias in aliases:
-        for key, value in flat.items():
-            if key == alias or key.endswith(f".{alias}"):
-                return value
-    lowered = {key.lower(): value for key, value in flat.items()}
-    for alias in aliases:
-        alias_l = alias.lower()
-        for key, value in lowered.items():
-            if key.endswith(alias_l):
-                return value
-    return None
-
-
-def extract_from_result_json(experiment_dir: Path) -> dict[str, Any]:
-    row: dict[str, Any] = {}
-    candidates = sorted(experiment_dir.glob("*.json"))
-
-    # Prefer files that are not our metadata if available.
-    candidates = sorted(candidates, key=lambda p: ("metadata" in p.name, p.name))
-
-    for path in candidates:
-        data = load_json(path)
-        if data is None:
+    for path in raw_root.rglob("*.json"):
+        if path.name == "experiment-metadata.json":
             continue
-        flat = flatten(data)
-        for column, aliases in FIELD_ALIASES.items():
-            if column not in row or row[column] in (None, ""):
-                value = find_alias(flat, aliases)
-                if value is not None:
-                    row[column] = value
 
-        # Derive p95 from raw arrays if vLLM emits per-request arrays.
-        for key, value in flat.items():
-            if not isinstance(value, list):
-                continue
-            values = [numeric(v) for v in value]
-            nums = [v for v in values if v is not None]
-            key_l = key.lower()
-            if nums and "ttft" in key_l and "TTFT p95" not in row:
-                row["TTFT p95"] = percentile(nums, 0.95)
-            if nums and ("tpot" in key_l or "itl" in key_l or "inter_token" in key_l) and "TPOT p95" not in row:
-                row["TPOT p95"] = percentile(nums, 0.95)
-            if nums and ("latenc" in key_l or "e2e" in key_l) and "E2E p95" not in row:
-                row["E2E p95"] = percentile(nums, 0.95)
+        data = load_json(path)
+        if not data:
+            continue
 
-    return row
+        # vLLM result JSONs usually contain one or more of these.
+        if any(
+            key in data
+            for key in [
+                "successful_requests",
+                "request_throughput",
+                "mean_ttft_ms",
+                "median_ttft_ms",
+                "p99_ttft_ms",
+                "mean_tpot_ms",
+                "p99_tpot_ms",
+            ]
+        ):
+            result_files.append(path)
 
-
-def parse_metadata(experiment_dir: Path) -> dict[str, Any]:
-    metadata_path = experiment_dir / "experiment-metadata.json"
-    data = load_json(metadata_path) if metadata_path.exists() else None
-    return data if isinstance(data, dict) else {}
+    return sorted(result_files)
 
 
-def infer_changed_variable(name: str) -> str:
-    patterns = [
-        (r"prompt-length-(\d+)", "random_input_len=\\1"),
-        (r"output-length-(\d+)", "random_output_len=\\1"),
-        (r"request-rate-(\d+)", "request_rate=\\1"),
-    ]
-    for pattern, repl in patterns:
-        match = re.match(pattern, name)
-        if match:
-            return re.sub(pattern, repl, name)
-    if name == "baseline":
-        return "none"
-    return name
+def metadata_for(result_file: Path) -> dict[str, Any]:
+    meta_path = result_file.parent / "experiment-metadata.json"
+    if meta_path.exists():
+        return load_json(meta_path) or {}
+
+    # Fallback for old layout.
+    return {}
 
 
-def controlled_variables(meta: dict[str, Any]) -> str:
-    keys = ["model", "random_input_len", "random_output_len", "num_prompts", "request_rate"]
-    parts = [f"{key}={meta[key]}" for key in keys if key in meta]
-    return "; ".join(parts)
+def val(data: dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        if key in data:
+            return data[key]
+    return ""
 
 
-def normalize_value(value: Any) -> str:
-    n = numeric(value)
-    if n is None:
-        return "TBD"
-    if abs(n) >= 100:
-        return f"{n:.2f}"
-    return f"{n:.4f}"
+def fmt(value: Any) -> str:
+    if value is None or value == "":
+        return ""
+    try:
+        return f"{float(value):.2f}"
+    except Exception:
+        return str(value)
+
+
+def infer_suite_from_path(raw_root: Path, result_file: Path, meta: dict[str, Any]) -> str:
+    if meta.get("suite"):
+        return str(meta["suite"])
+
+    rel = result_file.relative_to(raw_root)
+    return rel.parts[0] if len(rel.parts) >= 1 else ""
+
+
+def infer_experiment_from_path(raw_root: Path, result_file: Path, meta: dict[str, Any]) -> str:
+    if meta.get("experiment"):
+        return str(meta["experiment"])
+
+    rel = result_file.relative_to(raw_root)
+    if len(rel.parts) >= 2:
+        return rel.parts[1]
+    return result_file.parent.name
 
 
 def build_rows(raw_root: Path) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
-    experiment_dirs = [p for p in sorted(raw_root.iterdir()) if p.is_dir() and p.name != "metrics"]
 
-    for exp_dir in experiment_dirs:
-        meta = parse_metadata(exp_dir)
-        extracted = extract_from_result_json(exp_dir)
-        experiment = meta.get("experiment", exp_dir.name)
+    for result_file in find_result_jsons(raw_root):
+        data = load_json(result_file) or {}
+        meta = metadata_for(result_file)
 
-        row = {column: "TBD" for column in STANDARD_COLUMNS}
-        row["Experiment"] = str(experiment)
-        row["Workload"] = "random"
-        row["Changed Variable"] = infer_changed_variable(str(experiment))
-        row["Controlled Variables"] = controlled_variables(meta) or "See experiment-metadata.json"
-        row["TTFT p95"] = normalize_value(extracted.get("TTFT p95"))
-        row["TPOT p95"] = normalize_value(extracted.get("TPOT p95"))
-        row["E2E p95"] = normalize_value(extracted.get("E2E p95"))
-        row["Throughput"] = normalize_value(extracted.get("Throughput"))
-        row["Error Rate"] = normalize_value(extracted.get("Error Rate"))
-        row["Interpretation"] = "Operator interpretation required"
+        suite = infer_suite_from_path(raw_root, result_file, meta)
+        experiment = infer_experiment_from_path(raw_root, result_file, meta)
+
+        offered_rate = meta.get("request_rate", "")
+        actual_rps = val(data, "request_throughput")
+
+        row = {
+            "suite": suite,
+            "experiment": experiment,
+            "run_id": str(meta.get("run_id", result_file.parent.name)),
+            "input_tokens": str(meta.get("random_input_len", "")),
+            "output_tokens": str(meta.get("random_output_len", "")),
+            "offered_request_rate": fmt(offered_rate),
+            "actual_request_throughput": fmt(actual_rps),
+            "successful_requests": fmt(val(data, "successful_requests")),
+            "benchmark_duration_s": fmt(val(data, "benchmark_duration_s", "duration")),
+            "output_token_throughput": fmt(val(data, "output_throughput", "output_token_throughput")),
+            "total_token_throughput": fmt(val(data, "total_token_throughput")),
+            "mean_ttft_ms": fmt(val(data, "mean_ttft_ms")),
+            "median_ttft_ms": fmt(val(data, "median_ttft_ms")),
+            "p99_ttft_ms": fmt(val(data, "p99_ttft_ms")),
+            "mean_tpot_ms": fmt(val(data, "mean_tpot_ms")),
+            "median_tpot_ms": fmt(val(data, "median_tpot_ms")),
+            "p99_tpot_ms": fmt(val(data, "p99_tpot_ms")),
+            "mean_itl_ms": fmt(val(data, "mean_itl_ms")),
+            "median_itl_ms": fmt(val(data, "median_itl_ms")),
+            "p99_itl_ms": fmt(val(data, "p99_itl_ms")),
+            "result_file": str(result_file),
+        }
+
         rows.append(row)
 
-    return rows
+    def sort_key(row: dict[str, str]):
+        def as_float(x: str) -> float:
+            try:
+                return float(x)
+            except Exception:
+                return 0.0
+
+        return (
+            row["suite"],
+            as_float(row["input_tokens"]),
+            as_float(row["output_tokens"]),
+            as_float(row["offered_request_rate"]),
+            row["experiment"],
+            row["run_id"],
+        )
+
+    return sorted(rows, key=sort_key)
 
 
 def write_csv(rows: list[dict[str, str]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+
+    fields = [
+        "suite",
+        "experiment",
+        "run_id",
+        "input_tokens",
+        "output_tokens",
+        "offered_request_rate",
+        "actual_request_throughput",
+        "successful_requests",
+        "benchmark_duration_s",
+        "output_token_throughput",
+        "total_token_throughput",
+        "mean_ttft_ms",
+        "median_ttft_ms",
+        "p99_ttft_ms",
+        "mean_tpot_ms",
+        "median_tpot_ms",
+        "p99_tpot_ms",
+        "mean_itl_ms",
+        "median_itl_ms",
+        "p99_itl_ms",
+        "result_file",
+    ]
+
     with path.open("w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=STANDARD_COLUMNS)
+        writer = csv.DictWriter(f, fieldnames=fields)
         writer.writeheader()
         writer.writerows(rows)
 
 
-def markdown_table(rows: list[dict[str, str]]) -> str:
-    if not rows:
-        return "No benchmark rows found.\n"
-    header = "| " + " | ".join(STANDARD_COLUMNS) + " |"
-    sep = "| " + " | ".join(["---"] * len(STANDARD_COLUMNS)) + " |"
-    body = []
-    for row in rows:
-        body.append("| " + " | ".join(str(row.get(col, "TBD")).replace("\n", " ") for col in STANDARD_COLUMNS) + " |")
-    return "\n".join([header, sep, *body]) + "\n"
+def write_markdown(rows: list[dict[str, str]], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    fields = [
+        "suite",
+        "experiment",
+        "input_tokens",
+        "output_tokens",
+        "offered_request_rate",
+        "actual_request_throughput",
+        "mean_ttft_ms",
+        "p99_ttft_ms",
+        "mean_tpot_ms",
+        "p99_tpot_ms",
+        "successful_requests",
+    ]
+
+    headers = [
+        "Suite",
+        "Experiment",
+        "Input",
+        "Output",
+        "Offered req/s",
+        "Actual req/s",
+        "Mean TTFT ms",
+        "P99 TTFT ms",
+        "Mean TPOT ms",
+        "P99 TPOT ms",
+        "Success",
+    ]
+
+    with path.open("w") as f:
+        f.write("# Benchmark Summary — Build 1: vLLM Performance Triage\n\n")
+        f.write("| " + " | ".join(headers) + " |\n")
+        f.write("| " + " | ".join(["---"] * len(headers)) + " |\n")
+
+        for row in rows:
+            f.write("| " + " | ".join(row.get(field, "") for field in fields) + " |\n")
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Summarize vLLM benchmark raw results.")
-    parser.add_argument("--input", default="results/raw/001-vllm-performance-triage", help="Raw results root")
-    parser.add_argument("--output", default="results/processed/001-vllm-performance-triage", help="Processed output root")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input", default=DEFAULT_RAW)
+    parser.add_argument("--output", default=DEFAULT_OUT)
     args = parser.parse_args()
 
     raw_root = Path(args.input)
-    output_root = Path(args.output)
+    out_root = Path(args.output)
+
     if not raw_root.exists():
-        raise SystemExit(f"Raw results path does not exist: {raw_root}")
+        raise SystemExit(f"Raw root does not exist: {raw_root}")
 
     rows = build_rows(raw_root)
-    write_csv(rows, output_root / "benchmark-summary.csv")
-    (output_root / "benchmark-summary.md").write_text(markdown_table(rows))
+
+    csv_path = out_root / "benchmark-summary.csv"
+    md_path = out_root / "benchmark-summary.md"
+
+    write_csv(rows, csv_path)
+    write_markdown(rows, md_path)
 
     print(f"Wrote {len(rows)} rows")
-    print(f"CSV: {output_root / 'benchmark-summary.csv'}")
-    print(f"Markdown: {output_root / 'benchmark-summary.md'}")
+    print(f"CSV: {csv_path}")
+    print(f"Markdown: {md_path}")
+
+    if not rows:
+        print("WARNING: no benchmark result rows found.")
+
     return 0
 
 

@@ -1,27 +1,61 @@
 *notes/
 *.pem
 
-cat > .gitignore <<'EOF'
-.venv/
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.eggs/
+dist/
+build/
 
-# Large/local experiment output
-results/raw/**/*.jsonl
-results/raw/**/*.log
-results/raw/**/*.prom
-logs/
-*.log
+# Virtual environments
+.venv/
+venv/
+env/
 
-# Model/cache files
-.cache/
-huggingface/
-models/
-*.safetensors
-*.bin
-*.pt
+# Jupyter
+.ipynb_checkpoints/
 
-# Secrets
-.env
+# Node (if present)
+node_modules/
+
+# Terraform
+*.tfstate
+*.tfstate.backup
+crash.log
+override.tf
+override.tf.json
+*.tfvars
+*.tfvars.json
+.terraform/
+.terraform.lock.hcl
+
+# Kubernetes / Helm
+charts/**/charts/
+charts/**/tmp/
+charts/**/values.schema.json
+
+# Cloud / Keys
+.aws/
 *.pem
-EOF
+*.key
+
+# Logs
+*.log
+logs/
+*.out
+*.err
+
+# Benchmarks
+benchmarks/results/
+benchmarks/*.json
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+

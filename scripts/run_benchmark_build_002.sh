@@ -4,7 +4,7 @@ set -euo pipefail
 # Build 2 — Modern vLLM V1 Architecture Baseline
 #
 # Experiments:
-#   sanity
+#   runtime-baseline
 #   context-stretch
 #   concurrency-ramp
 #   all
@@ -12,7 +12,7 @@ set -euo pipefail
 # This script does not tune.
 # It runs a compact baseline to identify context-growth and concurrency inflection points.
 
-SUITE="${1:-sanity}"
+SUITE="${1:-runtime-baseline}"
 
 BUILD_ID="${BUILD_ID:-002-modern-vllm-v1-baseline}"
 
@@ -26,7 +26,7 @@ REQUEST_RATE="${REQUEST_RATE:-inf}"
 SEED="${SEED:-42}"
 
 # Default prompt counts by experiment are intentionally small to avoid wasting GPU time.
-SANITY_NUM_PROMPTS="${SANITY_NUM_PROMPTS:-25}"
+RUNTIME_BASELINE_NUM_PROMPTS="${RUNTIME_BASELINE_NUM_PROMPTS:-25}"
 CONTEXT_NUM_PROMPTS="${CONTEXT_NUM_PROMPTS:-25}"
 RAMP_NUM_PROMPTS="${RAMP_NUM_PROMPTS:-50}"
 
@@ -203,14 +203,14 @@ run_one() {
   log "Completed ${suite}/${experiment}"
 }
 
-run_sanity() {
+run_runtime-baseline() {
   run_one \
-    "sanity" \
+    "runtime-baseline" \
     "input1024-output128-concurrency1" \
     "1024" \
     "128" \
     "1" \
-    "${SANITY_NUM_PROMPTS}"
+    "${RUNTIME_BASELINE_NUM_PROMPTS}"
 }
 
 run_context_stretch() {
@@ -242,9 +242,9 @@ run_concurrency_ramp() {
 }
 
 case "${SUITE}" in
-  sanity)
+  runtime-baseline)
     require_server
-    run_sanity
+    run_runtime-baseline
     ;;
   context-stretch)
     require_server
@@ -256,13 +256,13 @@ case "${SUITE}" in
     ;;
   all)
     require_server
-    run_sanity
+    run_runtime-baseline
     run_context_stretch
     run_concurrency_ramp
     ;;
   *)
     echo "Unknown suite: ${SUITE}" >&2
-    echo "Valid suites: sanity, context-stretch, concurrency-ramp, all" >&2
+    echo "Valid suites: runtime-baseline, context-stretch, concurrency-ramp, all" >&2
     exit 1
     ;;
 esac

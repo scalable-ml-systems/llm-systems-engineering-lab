@@ -96,5 +96,4 @@ vllm serve "${MODEL}" \
   --max-num-seqs "${MAX_NUM_SEQS}" \
   --max-num-batched-tokens "${MAX_NUM_BATCHED_TOKENS}" \
   --moe-backend "${MOE_BACKEND}" \
-  --disable-log-stats false \
   2>&1 | tee "${SERVER_LOG}"

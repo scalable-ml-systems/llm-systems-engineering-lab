@@ -57,3 +57,17 @@ Build 2 measured baseline runtime behavior for `deepseek-ai/DeepSeek-V2-Lite-Cha
 - `vllm:kv_cache_usage_perc` is a 0–1 scale.
 - `vllm:num_preemptions_total` is cumulative over server lifetime, so interpret deltas carefully if the server stayed up across multiple experiments.
 - Raw evidence is preserved under `results/raw/002-modern-vllm-v1-baseline/`.
+
+## Data Quality Correction
+
+The original `prefill-context-stretch/input1024-output128-concurrency1` run produced an anomalous TTFT p99 of 4847.15 ms. A clean rerun of the same workload completed successfully with:
+
+- Successful requests: 25
+- Failed requests: 0
+- TTFT p99: 166.59 ms
+- TPOT p99: 4.80 ms
+- ITL p99: 5.33 ms
+- Request throughput: 1.47 req/s
+- Output token throughput: 188.29 tok/s
+
+The original 4847.15 ms TTFT result is treated as a warmup/transient outlier and excluded from trend interpretation.

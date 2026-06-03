@@ -54,3 +54,19 @@ Workload:
 input_len = 1024, 2048, 4096, 8192, 12288, 15360
 output_len = 128
 concurrency = 1
+
+## Data Quality Note
+
+The first 1024-token prefill-context-stretch run showed an anomalous TTFT p99 of 4847.15 ms. A clean rerun of the same workload produced TTFT p99 of 166.59 ms with 25/25 successful requests.
+
+Therefore, the 4847.15 ms value is treated as a warmup/transient outlier and excluded from the prefill-context trend.
+
+The corrected baseline confirms that context-growth pressure is visible as prompt length increases, while TPOT remains comparatively stable.
+
+## Data Quality Note
+
+The first 1024-token prefill-context-stretch run showed an anomalous TTFT p99 of 4847.15 ms. A clean rerun of the same workload produced TTFT p99 of 166.59 ms with 25/25 successful requests.
+
+Therefore, the 4847.15 ms value is treated as a warmup/transient outlier and excluded from the prefill-context trend.
+
+The corrected baseline confirms that context-growth pressure is visible as prompt length increases, while TPOT remains comparatively stable.

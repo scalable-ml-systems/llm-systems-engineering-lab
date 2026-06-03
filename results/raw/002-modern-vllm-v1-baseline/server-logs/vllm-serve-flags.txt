@@ -1,0 +1,3 @@
+  CacheConfig             Configuration for the KV cache.
+  SchedulerConfig         Scheduler configuration.
+          - [`cache_dir`][vllm.config.CompilationConfig.cache_dir]

@@ -902,4 +902,10 @@ Where does throughput flatten?
 Do preemptions appear?
 Which knob should Build 3 tune first?
 ```
+### MoE Backend Decision
 
+Build 2 uses `--moe-backend triton`.
+
+Reason: the default `auto` backend selected a FlashInfer fused MoE path on RTX PRO 6000 / SM120 and failed during JIT compilation. Build 2 is a runtime baseline, not a MoE backend tuning experiment, so the backend is pinned to Triton for stability.
+
+MoE backend comparison is deferred to Build 3.

@@ -5,8 +5,8 @@ set -euo pipefail
 #
 # Experiments:
 #   runtime-baseline
-#   context-stretch
-#   concurrency-ramp
+#   prefill-context-stretch
+#   kv-concurrency-ramp
 #   all
 #
 # This script does not tune.
@@ -203,7 +203,7 @@ run_one() {
   log "Completed ${suite}/${experiment}"
 }
 
-run_runtime-baseline() {
+run_runtime_baseline() {
   run_one \
     "runtime-baseline" \
     "input1024-output128-concurrency1" \
@@ -213,12 +213,12 @@ run_runtime-baseline() {
     "${RUNTIME_BASELINE_NUM_PROMPTS}"
 }
 
-run_context_stretch() {
+run_prefill_context_stretch() {
   # Context growth baseline:
   # output is small and concurrency=1 to isolate prompt/context behavior.
   for input_len in 1024 2048 4096 8192 12288 15360; do
     run_one \
-      "context-stretch" \
+      "prefill-context-stretch" \
       "input${input_len}-output128-concurrency1" \
       "${input_len}" \
       "128" \
@@ -227,12 +227,28 @@ run_context_stretch() {
   done
 }
 
-run_concurrency_ramp() {
+
+run_decode_residency_ramp() {
+  # Decode residency baseline:
+  # input is fixed, concurrency is fixed, output length increases.
+  # Purpose: isolate TPOT / ITL and output-token residency behavior.
+  for output_len in 128 256 512 1024 1536; do
+    run_one \
+      "decode-residency-ramp" \
+      "input1024-output${output_len}-concurrency4" \
+      "1024" \
+      "${output_len}" \
+      "4" \
+      "${CONTEXT_NUM_PROMPTS}"
+  done
+}
+
+run_kv_concurrency_ramp() {
   # Concurrency growth baseline:
   # input/output fixed; concurrency scales until useful saturation or preemption.
   for concurrency in 1 2 4 8 16 24 32; do
     run_one \
-      "concurrency-ramp" \
+      "kv-concurrency-ramp" \
       "input2048-output512-concurrency${concurrency}" \
       "2048" \
       "512" \
@@ -244,25 +260,30 @@ run_concurrency_ramp() {
 case "${SUITE}" in
   runtime-baseline)
     require_server
-    run_runtime-baseline
+    run_runtime_baseline
     ;;
-  context-stretch)
+  prefill-context-stretch)
     require_server
-    run_context_stretch
+    run_prefill_context_stretch
     ;;
-  concurrency-ramp)
+  decode-residency-ramp)
     require_server
-    run_concurrency_ramp
+    run_decode_residency_ramp
+    ;;
+  kv-concurrency-ramp)
+    require_server
+    run_kv_concurrency_ramp
     ;;
   all)
     require_server
-    run_runtime-baseline
-    run_context_stretch
-    run_concurrency_ramp
+    run_runtime_baseline
+    run_prefill_context_stretch
+    run_decode_residency_ramp
+    run_kv_concurrency_ramp
     ;;
   *)
     echo "Unknown suite: ${SUITE}" >&2
-    echo "Valid suites: runtime-baseline, context-stretch, concurrency-ramp, all" >&2
+    echo "Valid suites: runtime-baseline, prefill-context-stretch, decode-residency-ramp, kv-concurrency-ramp, all" >&2
     exit 1
     ;;
 esac

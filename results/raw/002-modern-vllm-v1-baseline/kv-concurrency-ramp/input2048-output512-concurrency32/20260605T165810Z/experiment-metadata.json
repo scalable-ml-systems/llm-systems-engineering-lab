@@ -1,0 +1,22 @@
+{
+  "build_id": "002-modern-vllm-v1-baseline",
+  "suite": "kv-concurrency-ramp",
+  "experiment": "input2048-output512-concurrency32",
+  "model": "deepseek-ai/DeepSeek-V2-Lite-Chat",
+  "served_model_name": "deepseek-ai/DeepSeek-V2-Lite-Chat",
+  "base_url": "http://localhost:8000",
+  "dataset_name": "random",
+  "random_input_len": 2048,
+  "random_output_len": 512,
+  "num_prompts": 50,
+  "request_rate": "inf",
+  "max_concurrency": 32,
+  "seed": 42,
+  "created_at_utc": "2026-06-05T16:58:10Z",
+  "telemetry_notes": {
+    "v1_correctness": "Do not use v0 swap metrics such as num_requests_swapped or cpu_cache_usage_perc.",
+    "kv_cache_metric": "Prefer vllm:kv_cache_usage_perc. Treat vllm:gpu_cache_usage_perc only as legacy alias if exposed.",
+    "preemption_metric": "Use vllm:num_preemptions_total if exposed.",
+    "prefix_cache": "Compute hit rate from prefix cache hit/query counters only if exposed."
+  }
+}
